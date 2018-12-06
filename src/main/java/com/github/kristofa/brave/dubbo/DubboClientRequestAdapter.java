@@ -20,7 +20,7 @@ public class DubboClientRequestAdapter implements ClientRequestAdapter {
     private Invoker<?> invoker;
     private Invocation invocation;
     private final static DubboSpanNameProvider spanNameProvider = new DefaultSpanNameProvider();
-    private final static DubboServerNameProvider serverNameProvider = new DefaultServerNameProvider();
+    private final static String DUBBO_MONITOR_INTERFACE = "com.alibaba.dubbo.monitor.MonitorService";
 
 
     public DubboClientRequestAdapter(Invoker<?> invoker, Invocation invocation) {
@@ -35,10 +35,14 @@ public class DubboClientRequestAdapter implements ClientRequestAdapter {
 
     @Override
     public void addSpanIdToRequest(@Nullable SpanId spanId) {
+        if(DUBBO_MONITOR_INTERFACE.equalsIgnoreCase(RpcContext.getContext().getUrl().getParameter("interface"))){
+            SpanId.builder().sampled(false).build();
+            return;
+        }
         String application = RpcContext.getContext().getUrl().getParameter("application");
         RpcContext.getContext().setAttachment("clientName", application);
-        if (spanId == null) {
-            RpcContext.getContext().setAttachment("sampled", "0");
+        if(spanId==null){
+                RpcContext.getContext().setAttachment("sampled", "0");
         }else{
             RpcContext.getContext().setAttachment("traceId", IdConversion.convertToString(spanId.traceId));
             RpcContext.getContext().setAttachment("spanId", IdConversion.convertToString(spanId.spanId));
@@ -46,6 +50,7 @@ public class DubboClientRequestAdapter implements ClientRequestAdapter {
                 RpcContext.getContext().setAttachment("parentId", IdConversion.convertToString(spanId.parentId));
             }
         }
+
     }
 
     @Override
@@ -57,8 +62,7 @@ public class DubboClientRequestAdapter implements ClientRequestAdapter {
     public Endpoint serverAddress() {
         InetSocketAddress inetSocketAddress = RpcContext.getContext().getRemoteAddress();
         String ipAddr = RpcContext.getContext().getUrl().getIp();
-        String serverName = serverNameProvider.resolveServerName(RpcContext.getContext());
-        return Endpoint.create(serverName, IPConversion.convertToInt(ipAddr),inetSocketAddress.getPort());
+        return Endpoint.create(null, IPConversion.convertToInt(ipAddr),inetSocketAddress.getPort());
     }
 
 
